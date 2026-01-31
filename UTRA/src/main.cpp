@@ -1,44 +1,89 @@
 #include <Arduino.h>
 
-// HC-SR04 Ultrasonic Sensor Test
-// Connect TRIG to pin 9
-// Connect ECHO to pin 10
-// Connect VCC to 5V
-// Connect GND to GND
+// HW095 DC Motor Driver (L298N style H-bridge)
+// Motor A: IN1, IN2
+// Motor B: IN3, IN4
 
-const int TRIG_PIN = 9;
-const int ECHO_PIN = 10;
+const int IN1 = 9;   // Motor A control pin 1
+const int IN2 = 10;  // Motor A control pin 2
+const int IN3 = 11;  // Motor B control pin 1
+const int IN4 = 12;  // Motor B control pin 2
+
+// Motor A functions
+void motorA_forward() {
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+}
+
+void motorA_backward() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+}
+
+void motorA_stop() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+}
+
+// Motor B functions
+void motorB_forward() {
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
+
+void motorB_backward() {
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+void motorB_stop() {
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+}
+
+// Combined movement functions
+void forward() {
+  motorA_forward();
+  motorB_forward();
+}
+
+void backward() {
+  motorA_backward();
+  motorB_backward();
+}
+
+void stopAll() {
+  motorA_stop();
+  motorB_stop();
+}
 
 void setup() {
-  pinMode(TRIG_PIN, OUTPUT);
-  pinMode(ECHO_PIN, INPUT);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+
   Serial.begin(9600);
-  Serial.println("HC-SR04 Ultrasonic Sensor Test");
-  Serial.println("==============================");
+  Serial.println("HW095 DC Motor Driver Test");
+  Serial.println("==========================");
+
+  stopAll();
 }
 
 void loop() {
-  // Send trigger pulse
-  digitalWrite(TRIG_PIN, LOW);
-  delayMicroseconds(2);
-  digitalWrite(TRIG_PIN, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(TRIG_PIN, LOW);
+  Serial.println("Forward...");
+  forward();
+  delay(2000);
 
-  // Read echo pulse duration
-  long duration = pulseIn(ECHO_PIN, HIGH);
+  Serial.println("Stop...");
+  stopAll();
+  delay(1000);
 
-  // Calculate distance (speed of sound = 343 m/s = 0.0343 cm/us)
-  // Distance = (duration * 0.0343) / 2
-  float distanceCm = (duration * 0.0343) / 2.0;
-  float distanceInch = distanceCm / 2.54;
+  Serial.println("Backward...");
+  backward();
+  delay(2000);
 
-  // Display distance
-  Serial.print("Distance: ");
-  Serial.print(distanceCm, 1);
-  Serial.print(" cm | ");
-  Serial.print(distanceInch, 1);
-  Serial.println(" in");
-
-  delay(200);
+  Serial.println("Stop...");
+  stopAll();
+  delay(1000);
 }
