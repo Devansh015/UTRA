@@ -66,7 +66,7 @@ export default function RunsPage() {
   };
 
   return (
-    <div className="max-w-5xl">
+    <div className="max-w-5xl mx-auto">
       <div className="flex justify-between items-center mb-4">
         <div className="text-[#00ff00]/50 text-sm">{">"} RUN HISTORY</div>
         <button

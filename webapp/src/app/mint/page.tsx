@@ -76,7 +76,7 @@ export default function MintPage() {
   };
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-4xl mx-auto">
       <div className="mb-4 text-[#00ff00]/50 text-sm">{">"} NFT MINT STATION</div>
 
       <div className="grid md:grid-cols-2 gap-4">

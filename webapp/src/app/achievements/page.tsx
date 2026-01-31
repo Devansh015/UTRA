@@ -13,7 +13,7 @@ export default function AchievementsPage() {
   const unlocked = achievements.filter(a => a.unlocked).length;
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-2xl mx-auto">
       <div className="mb-4 text-[#00ff00]/50 text-sm">{">"} ACHIEVEMENTS [{unlocked}/{achievements.length}]</div>
 
       <div className="terminal-box p-4">
