@@ -90,12 +90,14 @@ void loop()
 const int rot = 1;
 const int move = 1;
 const int rot2 = 1;
+const int move2 = 1;
 
 const int movement_delay = 150;
 
 int count1 = 0;
 int count2 = 0;
 int count3 = 0;
+int count4 = 0;
 
 void loop()
 {
@@ -113,17 +115,26 @@ void loop()
     moveForward();
     delay(movement_delay);
     stopMotors();
-    delay(200);
+    delay(50);
     count2++;
   }
 
-  while (count3 < move)
+  while (count3 < rot2)
   {
     moveLeft();
     delay(movement_delay);
     stopMotors();
     delay(200);
     count3++;
+  }
+
+  while (count4 < move2)
+  {
+    moveForward();
+    delay(movement_delay);
+    stopMotors();
+    delay(50);
+    count4++;
   }
 }
 #endif
