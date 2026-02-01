@@ -1,12 +1,12 @@
 // Simple colour sensor test - moves forward when red is detected
 
 // dc motor
-const int LEFT1 = 9;
-const int LEFT2 = 10;
-const int RIGHT1 = 11;
-const int RIGHT2 = 12;
-const int ENA = 7;
-const int ENB = 8;
+const int ENA = 8;
+const int ENB = 13;
+const int IN1 = 9;   // Left motor
+const int IN2 = 10;
+const int IN3 = 11;  // Right motor
+const int IN4 = 12;
 
 // colour sensor
 const int S0 = 2;
@@ -20,14 +20,14 @@ const int whiteThreshold = 40;
 
 void setup() {
   // dc motor
-  pinMode(LEFT1, OUTPUT);
-  pinMode(LEFT2, OUTPUT);
-  pinMode(RIGHT1, OUTPUT);
-  pinMode(RIGHT2, OUTPUT);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
   pinMode(ENA, OUTPUT);
   pinMode(ENB, OUTPUT);
-  digitalWrite(ENA, HIGH);
-  digitalWrite(ENB, HIGH);
+  digitalWrite(ENA, HIGH);  // Enable left motor
+  digitalWrite(ENB, HIGH);  // Enable right motor
 
   // colour sensor
   pinMode(S0, OUTPUT);
@@ -51,17 +51,17 @@ int getRedPW() {
 }
 
 void moveForward() {
-  digitalWrite(LEFT1, HIGH);
-  digitalWrite(LEFT2, LOW);
-  digitalWrite(RIGHT1, HIGH);
-  digitalWrite(RIGHT2, LOW);
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
 }
 
 void stopMotors() {
-  digitalWrite(LEFT1, LOW);
-  digitalWrite(LEFT2, LOW);
-  digitalWrite(RIGHT1, LOW);
-  digitalWrite(RIGHT2, LOW);
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
 }
 
 void loop() {
