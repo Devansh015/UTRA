@@ -5,10 +5,26 @@
  */
 
 #include <Arduino.h>
-#include <Wire.h>
 
-// --- Color enum (enum class to avoid conflict with challenge_one.cpp) ---
-enum class PartTwoColor { red, green, blue, black, error };
+// --- TCS3200 color sensor pins ---
+const int S0 = 2;
+const int S1 = 3;
+const int S2 = 4;
+const int S3 = 5;
+const int S_OUT = 6;
+const int blackThreshold = 100;
+const int whiteThreshold = 40;
+int redPW = 0;
+int greenPW = 0;
+int bluePW = 0;
+
+typedef enum {
+  PATH_WHITE = 0,
+  PATH_RED = 1,
+  PATH_GREEN = 2,
+  PATH_BLUE = 3,
+  PATH_BLACK = 4
+} PathColour;
 
 // --- Constants ---
 const int TURN_SPEED = 120;
@@ -19,8 +35,9 @@ const int REVERSE_SPEED = 100;
 const unsigned long FOLLOW_HOME_DURATION_MS = 8000;
 
 // --- Ultrasonic sensor (HC-SR04) ---
-const int TRIG_PIN = 2;
-const int ECHO_PIN = 4;
+// Note: TRIG/ECHO use pins 7,8 to avoid conflict with TCS3200 (S0=2, S2=4)
+const int TRIG_PIN = 7;
+const int ECHO_PIN = 8;
 const int SCAN_STEP_DEGREES = 12;
 const int NUM_SCAN_STEPS = 360 / SCAN_STEP_DEGREES;
 const unsigned long SCAN_STEP_DURATION_MS = 250;
@@ -33,10 +50,6 @@ const int IN3 = 6;
 const int IN4 = 5;
 const int ENA_PIN = 11;
 const int ENB_PIN = 3;
-
-// --- Color sensor ---
-const int COLOR_SENSOR_SDA = A4;
-const int COLOR_SENSOR_SCL = A5;
 
 // --- State machine ---
 enum class ChallengeTwoState {
@@ -58,14 +71,14 @@ unsigned long scanStepStartTime = 0;
 float scanDistances[NUM_SCAN_STEPS];
 bool scanRotationPhase = true;
 int colorChanges = 0;
-PartTwoColor currentColor = PartTwoColor::black;
+PathColour currentColor = PATH_BLACK;
 
 // --- Forward declarations (static = file-local, no conflict with challenge_one.cpp) ---
-static PartTwoColor getColor();
+static PathColour getColour();
 static bool isOnGreenLine();
 static bool isOnRedSurface();
 static bool isOnBlackTape();
-static String getEnumColor(color c);
+static String getEnumColor(PathColour c);
 static void driveMotor(int leftPWM, int rightPWM);
 static void stop();
 static void turnLeft(int pwm = -1);
@@ -73,33 +86,68 @@ static void turnRight(int pwm = -1);
 static float measureDistanceCm();
 static void driveBackward(int speed);
 
-// ========== Color sensor ==========
-static PartTwoColor getColor() {
-  static unsigned long lastRead = 0;
-  static PartTwoColor stubColor = PartTwoColor::black;
-  if (millis() - lastRead > 100) {
-    lastRead = millis();
-    int r = analogRead(A0);
-    if (r < 200) stubColor = PartTwoColor::black;
-    else if (r < 400) stubColor = PartTwoColor::blue;
-    else if (r < 600) stubColor = PartTwoColor::green;
-    else if (r < 800) stubColor = PartTwoColor::red;
-    else stubColor = PartTwoColor::black;
+// ========== Color sensor (TCS3200) ==========
+static PathColour getColour() {
+  redPW = getRedPW();
+  greenPW = getGreenPW();
+  bluePW = getBluePW();
+
+  if (redPW > blackThreshold && greenPW > blackThreshold && bluePW > blackThreshold) {
+    return PATH_BLACK;
   }
-  return stubColor;
+
+  if (redPW < whiteThreshold && greenPW < whiteThreshold && bluePW < whiteThreshold) {
+    return PATH_WHITE;
+  }
+
+  int maxColor = min(redPW, min(greenPW, bluePW));
+  if (maxColor == redPW) {
+    return PATH_RED;
+  }
+  else if (maxColor == greenPW) {
+    return PATH_GREEN;
+  }
+  else {
+    return PATH_BLUE;
+  }
 }
 
-static bool isOnGreenLine() { return getColor() == PartTwoColor::green; }
-static bool isOnRedSurface() { return getColor() == PartTwoColor::red; }
-static bool isOnBlackTape() { return getColor() == PartTwoColor::black; }
+static int getRedPW() {
+  digitalWrite(S2, LOW);
+  digitalWrite(S3, LOW);
+  delay(10);
+  int PW = pulseIn(S_OUT, LOW);
+  return PW;
+}
 
-static String getEnumColor(PartTwoColor c) {
+static int getGreenPW() {
+  digitalWrite(S2, HIGH);
+  digitalWrite(S3, HIGH);
+  delay(10);
+  int PW = pulseIn(S_OUT, LOW);
+  return PW;
+}
+
+static int getBluePW() {
+  digitalWrite(S2, LOW);
+  digitalWrite(S3, HIGH);
+  delay(10);
+  int PW = pulseIn(S_OUT, LOW);
+  return PW;
+}
+
+static bool isOnGreenLine() { return getColour() == PATH_GREEN; }
+static bool isOnRedSurface() { return getColour() == PATH_RED; }
+static bool isOnBlackTape() { return getColour() == PATH_BLACK; }
+
+static String getEnumColor(PathColour c) {
   switch (c) {
-    case PartTwoColor::red:   return "RED";
-    case PartTwoColor::green: return "GREEN";
-    case PartTwoColor::blue:  return "BLUE";
-    case PartTwoColor::black: return "BLACK";
-    default: return "ERROR";
+    case PATH_RED:   return "RED";
+    case PATH_GREEN: return "GREEN";
+    case PATH_BLUE:  return "BLUE";
+    case PATH_BLACK: return "BLACK";
+    case PATH_WHITE: return "WHITE";
+    default:         return "ERROR";
   }
 }
 
@@ -164,6 +212,13 @@ void initChallengeTwo() {
   if (ENB_PIN >= 0) pinMode(ENB_PIN, OUTPUT);
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
+  pinMode(S0, OUTPUT);
+  pinMode(S1, OUTPUT);
+  pinMode(S2, OUTPUT);
+  pinMode(S3, OUTPUT);
+  pinMode(S_OUT, INPUT);
+  digitalWrite(S0, HIGH);
+  digitalWrite(S1, LOW);
 
   challengeTwoState = ChallengeTwoState::FIND_WALL_ANGLE;
   scanStepIndex = 0;

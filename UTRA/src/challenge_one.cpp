@@ -9,10 +9,26 @@
  */
 
 #include <Arduino.h>
-#include <Wire.h>
 
-// --- Color enum ---
-enum color { red, green, blue, black, error };
+// --- TCS3200 color sensor pins ---
+const int S0 = 2;
+const int S1 = 3;
+const int S2 = 4;
+const int S3 = 5;
+const int S_OUT = 6;
+const int blackThreshold = 100;
+const int whiteThreshold = 40;
+int redPW = 0;
+int greenPW = 0;
+int bluePW = 0;
+
+typedef enum {
+  PATH_WHITE = 0,
+  PATH_RED = 1,
+  PATH_GREEN = 2,
+  PATH_BLUE = 3,
+  PATH_BLACK = 4
+} PathColour;
 
 // --- Constants ---
 const int TURN_SPEED = 120;
@@ -31,11 +47,6 @@ const int IN4 = 5;   // Right motor direction
 const int ENA_PIN = 11;  // Left motor PWM (-1 if jumper on)
 const int ENB_PIN = 3;   // Right motor PWM (-1 if jumper on)
 
-// --- Color sensor (TCS34725 via I2C) - simplified stub when no hardware ---
-const int COLOR_SENSOR_SDA = A4;
-const int COLOR_SENSOR_SCL = A5;
-bool colorSensorReady = false;
-
 // --- State machine ---
 enum class ChallengeOneState {
   STAGE1_GREEN_PATH,       // Follow green line on ground
@@ -51,15 +62,15 @@ unsigned long timestampOne = 0;
 unsigned long timestampTwo = 0;
 unsigned long centerTime = 0;
 int colorChanges = 0;
-color currentColor = error;
+PathColour currentColor = PATH_WHITE;
 
 // --- Forward declarations ---
-color getColor();
+PathColour getColour();
 bool isColorFound();
 bool isOnBlackTape();
 bool isOnGreenLine();
 bool isOnRedSurface();
-String getEnumColor(color c);
+String getEnumColor(PathColour c);
 void driveMotor(int leftPWM, int rightPWM);
 void drive();
 void stop();
@@ -73,50 +84,81 @@ bool followBlackTapeUntilCenter();
 bool isAtRampTop();
 void timeSave();
 
-// ========== Color sensor ==========
-// Uses raw I2C to read TCS34725, or returns stub when unavailable.
-// To use Adafruit TCS34725 library, replace this section and add lib_deps.
-color getColor() {
-  // Stub: simulate color detection for development without hardware.
-  // In production, read from TCS34725 (I2C) and classify by RGB thresholds.
-  static unsigned long lastRead = 0;
-  static color stubColor = black;
-  if (millis() - lastRead > 100) {
-    lastRead = millis();
-    int r = analogRead(A0);  // Use A0 as placeholder; replace with sensor read
-    if (r < 200) stubColor = black;
-    else if (r < 400) stubColor = blue;
-    else if (r < 600) stubColor = green;
-    else if (r < 800) stubColor = red;
-    else stubColor = error;
+// ========== Color sensor (TCS3200) ==========
+PathColour getColour() {
+  redPW = getRedPW();
+  greenPW = getGreenPW();
+  bluePW = getBluePW();
+
+  if (redPW > blackThreshold && greenPW > blackThreshold && bluePW > blackThreshold) {
+    return PATH_BLACK;
   }
-  return stubColor;
+
+  if (redPW < whiteThreshold && greenPW < whiteThreshold && bluePW < whiteThreshold) {
+    return PATH_WHITE;
+  }
+
+  int maxColor = min(redPW, min(greenPW, bluePW));
+  if (maxColor == redPW) {
+    return PATH_RED;
+  }
+  else if (maxColor == greenPW) {
+    return PATH_GREEN;
+  }
+  else {
+    return PATH_BLUE;
+  }
+}
+
+int getRedPW() {
+  digitalWrite(S2, LOW);
+  digitalWrite(S3, LOW);
+  delay(10);
+  int PW = pulseIn(S_OUT, LOW);
+  return PW;
+}
+
+int getGreenPW() {
+  digitalWrite(S2, HIGH);
+  digitalWrite(S3, HIGH);
+  delay(10);
+  int PW = pulseIn(S_OUT, LOW);
+  return PW;
+}
+
+int getBluePW() {
+  digitalWrite(S2, LOW);
+  digitalWrite(S3, HIGH);
+  delay(10);
+  int PW = pulseIn(S_OUT, LOW);
+  return PW;
 }
 
 bool isColorFound() {
-  color c = getColor();
-  return (c == black);
+  PathColour c = getColour();
+  return (c == PATH_BLACK);
 }
 
 bool isOnBlackTape() {
-  return getColor() == black;
+  return getColour() == PATH_BLACK;
 }
 
 bool isOnGreenLine() {
-  return getColor() == green;
+  return getColour() == PATH_GREEN;
 }
 
 bool isOnRedSurface() {
-  return getColor() == red;
+  return getColour() == PATH_RED;
 }
 
-String getEnumColor(color c) {
+String getEnumColor(PathColour c) {
   switch (c) {
-    case red:   return "RED";
-    case green: return "GREEN";
-    case blue:  return "BLUE";
-    case black: return "BLACK";
-    default:    return "ERROR";
+    case PATH_RED:   return "RED";
+    case PATH_GREEN: return "GREEN";
+    case PATH_BLUE:  return "BLUE";
+    case PATH_BLACK: return "BLACK";
+    case PATH_WHITE: return "WHITE";
+    default:         return "ERROR";
   }
 }
 
@@ -222,6 +264,13 @@ void initChallengeOne() {
   pinMode(IN4, OUTPUT);
   if (ENA_PIN >= 0) pinMode(ENA_PIN, OUTPUT);
   if (ENB_PIN >= 0) pinMode(ENB_PIN, OUTPUT);
+  pinMode(S0, OUTPUT);
+  pinMode(S1, OUTPUT);
+  pinMode(S2, OUTPUT);
+  pinMode(S3, OUTPUT);
+  pinMode(S_OUT, INPUT);
+  digitalWrite(S0, HIGH);
+  digitalWrite(S1, LOW);
 
   challengeOneState = ChallengeOneState::STAGE1_GREEN_PATH;
 }
@@ -273,12 +322,12 @@ void challengeOne() {
     case ChallengeOneState::STAGE4_PLATFORM_NAV: {
       driveMotor(DRIVE_SPEED, DRIVE_SPEED);
       colorChanges = 0;
-      currentColor = getColor();
+      currentColor = getColour();
 
       // Navigate through concentric zones: red -> green -> black
       while (colorChanges < 2) {
-        while (getColor() == currentColor) { /* wait */ }
-        currentColor = getColor();
+        while (getColour() == currentColor) { /* wait */ }
+        currentColor = getColour();
         colorChanges++;
       }
       // Now on black center zone - Part Two (challenge_one_part_two) continues from here
