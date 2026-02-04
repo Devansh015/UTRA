@@ -4,6 +4,9 @@ R2Detour is an autonomous line-following robot designed to navigate high-contras
 
 This project was developed for **UTRA Hacks 2026**.
 
+<img width="430" height="573" alt="image" src="https://github.com/user-attachments/assets/af55c02a-afdc-4f24-9c88-44d5a86da43c" />
+
+
 ## TLDR
 
 - Autonomous line-following robot built with an Arduino Uno and IR sensor array  
@@ -117,5 +120,3 @@ Each NFT includes:
 - Arweave
 
 ---
-
-<img width="430" height="573" alt="image" src="https://github.com/user-attachments/assets/af55c02a-afdc-4f24-9c88-44d5a86da43c" />
